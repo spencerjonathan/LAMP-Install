@@ -1,10 +1,14 @@
-- hosts: all
+- hosts: webservers
   gather_facts: no
+  remote_user: root
   vars:
       http_port: 8080
       max_clients: 200
+      admin_email: you@yourdomain.com
       mysql_admin_username: admin_user
       mysql_admin_password: YOURPASSWORD
+      mysql_joomla_username: scacrorg
+      mysql_joomla_password: TBD
     
   pre_tasks:
       - name: install python 2
@@ -30,8 +34,12 @@
 #        become: yes
 
       - name: Create Admin User
-        command: mysql -uroot -e"GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_admin_username }}'@'localhost' IDENTIFIED BY '{{ mysql_admin_password }}'";
+        command: mysql -uroot -e"GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_admin_username }}'@'localhost' IDENTIFIED BY '{{ mysql_admin_password }} WITH GRANT OPTION'";
         become: yes
+
+#      - name: Create Joomla User
+#        command: mysql -uroot -e"GRANT ALL PRIVILEGES ON scacrorg.* TO '{{ mysql_joomla_username }}'@'localhost' IDENTIFIED BY '{{ mysql_joomla_password }}'";
+#        become: yes
 
       - name: Install Apache2
         apt:
@@ -61,12 +69,12 @@
           mode: 644
         become: yes
         
-      - name: Enable SQL Injection Mod Security Rule
-        file:
-          src: /usr/share/modsecurity-crs/base_rules/modsecurity_crs_41_sql_injection_attacks.conf
-          dest: /usr/share/modsecurity-crs/activated_rules/modsecurity_crs_41_sql_injection_attacks.conf
-          state: link
-        become: yes
+#      - name: Enable SQL Injection Mod Security Rule
+#        file:
+#          src: /usr/share/modsecurity-crs/base_rules/modsecurity_crs_41_sql_injection_attacks.conf
+#          dest: /usr/share/modsecurity-crs/activated_rules/modsecurity_crs_41_sql_injection_attacks.conf
+#          state: link
+#        become: yes
 
       - name: Install PHP
         apt: pkg={{item}}
@@ -108,21 +116,34 @@
         command: apachectl -k graceful
         become: yes
 
-      - name: Download Joomla
-        get_url:
-          url: https://downloads.joomla.org/cms/joomla3/3-8-7/Joomla_3-8-7-Stable-Full_Package.tar.gz?format=gz
-          dest: /tmp/Joomla.tar.gz
+#      - name: Download Joomla
+#        get_url:
+#          url: https://downloads.joomla.org/cms/joomla3/3-8-7/Joomla_3-8-7-Stable-Full_Package.tar.gz?format=gz
+#          dest: /tmp/Joomla.tar.gz
 
-      - name: Clean /var/www/html folder
-        file:
-          state: absent
-          path: /var/www/html/index.html
+#      - name: Clean /var/www/html folder
+#        file:
+#          state: absent
+#          path: /var/www/html/index.html
+#        become: yes
+
+#      - name: Extract Joomla tar.gz file into 
+#        unarchive:
+#          src: /tmp/Joomla.tar.gz
+#          dest: /var/www/html/
+#          remote_src: yes
+#        become: yes
+
+      
+      - name: Add certbot apt repository
+        apt_repository:
+          repo: ppa:certbot/certbot
+
+      - name: Certbot - for ssl security
+        apt: 
+          name: python-certbot-apache
+          state: latest
         become: yes
 
-      - name: Extract Joomla tar.gz file into 
-        unarchive:
-          src: /tmp/Joomla.tar.gz
-          dest: /var/www/html/
-          remote_src: yes
-        become: yes
-
+      - name: Install certificate
+        command: sudo certbot --apache -d {{inventory_hostname}} -m {{ admin_email }} --agree-tos
