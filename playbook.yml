@@ -7,8 +7,9 @@
       admin_email: you@yourdomain.com
       mysql_admin_username: admin_user
       mysql_admin_password: YOURPASSWORD
-      mysql_joomla_username: scacrorg
+      mysql_joomla_username: your_joomla_user
       mysql_joomla_password: TBD
+      webmin_version: webmin-1.881
     
   pre_tasks:
       - name: install python 2
@@ -34,8 +35,9 @@
 #        become: yes
 
       - name: Create Admin User
-        command: mysql -uroot -e"GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_admin_username }}'@'localhost' IDENTIFIED BY '{{ mysql_admin_password }} WITH GRANT OPTION'";
+        command: mysql -uroot -e"create user IF NOT EXISTS {{ mysql_admin_username }}@localhost identified by '{{ mysql_admin_password }}'; grant all privileges on *.* to {{ mysql_admin_username }}@localhost WITH GRANT OPTION; flush privileges";
         become: yes
+
 
 #      - name: Create Joomla User
 #        command: mysql -uroot -e"GRANT ALL PRIVILEGES ON scacrorg.* TO '{{ mysql_joomla_username }}'@'localhost' IDENTIFIED BY '{{ mysql_joomla_password }}'";
@@ -87,6 +89,10 @@
         - php7.0-mbstring
         - php-gettext
         - libapache2-mod-php7.0
+# Required for Froxlor
+#        - php-curl
+#        - php-bcmath
+#        - php-zip
 
       - name: Configure PHP Security
         copy:
@@ -103,6 +109,25 @@
           state: latest
         become: yes
 
+#      - name: Download Webmin Archive
+#        get_url:
+#          url: http://prdownloads.sourceforge.net/webadmin/{{ webmin_version }}.tar.gz
+#          dest: /tmp/Webmin.tar.gz
+
+      - name: Create Webmin config directory
+        file:
+          state: directory
+          path: /etc/webmin
+          mode: 0755
+        become: yes
+
+#      - name: Extract Webmin tar.gz file into 
+#        unarchive:
+#          src: /tmp/Webmin.tar.gz
+#          dest: /usr/share
+#          remote_src: yes
+#        become: yes
+
       - name: Configure Apache to run PHPMyAdmin
         copy:
           src: ./apache2.conf
@@ -116,23 +141,23 @@
         command: apachectl -k graceful
         become: yes
 
-#      - name: Download Joomla
-#        get_url:
-#          url: https://downloads.joomla.org/cms/joomla3/3-8-7/Joomla_3-8-7-Stable-Full_Package.tar.gz?format=gz
-#          dest: /tmp/Joomla.tar.gz
+      - name: Download Joomla
+        get_url:
+          url: https://downloads.joomla.org/cms/joomla3/3-8-8/Joomla_3-8-8-Stable-Full_Package.tar.gz?format=gz
+          dest: /tmp/Joomla.tar.gz
 
-#      - name: Clean /var/www/html folder
-#        file:
-#          state: absent
-#          path: /var/www/html/index.html
-#        become: yes
+      - name: Clean /var/www/html folder
+        file:
+          state: absent
+          path: /var/www/html/index.html
+        become: yes
 
-#      - name: Extract Joomla tar.gz file into 
-#        unarchive:
-#          src: /tmp/Joomla.tar.gz
-#          dest: /var/www/html/
-#          remote_src: yes
-#        become: yes
+      - name: Extract Joomla tar.gz file into 
+        unarchive:
+          src: /tmp/Joomla.tar.gz
+          dest: /var/www/html/
+          remote_src: yes
+        become: yes
 
       
       - name: Add certbot apt repository
@@ -145,5 +170,5 @@
           state: latest
         become: yes
 
-      - name: Install certificate
-        command: sudo certbot --apache -d {{inventory_hostname}} -m {{ admin_email }} --agree-tos
+#      - name: Install certificate
+#        command: sudo certbot --apache -d {{inventory_hostname}} -m {{ admin_email }} --agree-tos
